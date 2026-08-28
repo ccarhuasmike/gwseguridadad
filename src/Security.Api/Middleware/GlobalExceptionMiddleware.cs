@@ -47,9 +47,9 @@ public class GlobalExceptionMiddleware
             "Error no controlado. Timestamp: {Timestamp}, TraceId: {TraceId}, Endpoint: {Endpoint}, Method: {Method}, User: {User}, Message: {ExceptionMessage}",
             DateTime.UtcNow,
             traceId,
-            context.Request.Path,
-            context.Request.Method,
-            currentUserService.UserName ?? currentUserService.UserId?.ToString() ?? "anónimo",
+            Sanitize(context.Request.Path.Value),
+            Sanitize(context.Request.Method),
+            Sanitize(currentUserService.UserName ?? currentUserService.UserId?.ToString() ?? "anónimo"),
             exception.Message);
 
         context.Response.ContentType = "application/json";
@@ -59,6 +59,14 @@ public class GlobalExceptionMiddleware
 
         await context.Response.WriteAsJsonAsync(response);
     }
+
+    /// <summary>
+    /// Strips CR/LF characters from a value before it is written to the log,
+    /// preventing log forging via crafted request paths, HTTP methods, or
+    /// user names that could otherwise inject fake log entries.
+    /// </summary>
+    private static string Sanitize(string? value) =>
+        string.IsNullOrEmpty(value) ? string.Empty : value.Replace("\r", string.Empty).Replace("\n", string.Empty);
 
     private static (HttpStatusCode StatusCode, List<ApiError> Errors, string Message) MapException(Exception exception) => exception switch
     {
